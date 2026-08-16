@@ -4,6 +4,7 @@ total_spent = 0
 total_budget = float(input("Enter your total budget: "))
 number_of_expenses = int(input("How many expenses do you want to enter? "))
 for i in range(1, number_of_expenses + 1):
+    expense = []
     print(f"Expense {i}:")
     description = input("What did you buy? ")
     while True:
@@ -27,3 +28,10 @@ for i in range(1, number_of_expenses + 1):
     remaining_budget = total_budget - total_spent
     print(f"Total spent: ${total_spent}")
     print(f"Remaining budget: ${remaining_budget}\n")
+    expense.append(i)
+    expense.append(description)
+    expense.append(cost)
+    expense.append(category)
+    expense.append(amount)
+    expense.append(date)
+    expense.append(payment)
