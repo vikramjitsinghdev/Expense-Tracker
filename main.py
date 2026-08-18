@@ -1,3 +1,14 @@
+#using flask to create a web application for the expense tracker and connect the html and the python code
+#importing the flask module and creating an instance of the Flask class
+from flask import Flask, render_template
+#creates actual flask application
+app = Flask(__name__)
+#Routing the home page to the index.html file
+@app.route("/")
+#creating a function called home
+def home():
+    #connecting the index.html file to the home function and returning it to the user
+    return render_template("index.html")
 # import datetime module to validate date input
 from datetime import datetime
 """
@@ -328,3 +339,7 @@ while True:
     # Invalid menu choice
     else:
         print("Invalid option. Please choose a number from 1 to 10.")
+#run the flask application if this script is executed directly
+if __name__ == "__main__":
+    #run the application in debug mode for easier development and troubleshooting
+    app.run(debug=True)
