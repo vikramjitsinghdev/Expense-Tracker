@@ -494,8 +494,7 @@
                             onclick="deleteExpense(${expense.id})">
                         Delete
                     </button>
-                </td>
-            `;
+                </td>`;
             table.appendChild(row);
         });
         showScene("expensesScene");
@@ -528,7 +527,6 @@
         }
         const results =
             expenses.filter(expense => expense.date === date);
-
         if (results.length === 0) {
             document.getElementById("searchResults").innerHTML =
                 "<p class='message'>No expenses found for this date.</p>";
@@ -549,11 +547,9 @@
     // SORT
     // -----------------------------
     function sortExpenses() {
-
         expenses.sort((a, b) =>
             a.date.localeCompare(b.date)
         );
-
         showExpenses();
     }
     // -----------------------------
