@@ -206,9 +206,7 @@
             <label for="name">Your Name</label>
             <input id="name" type="text" placeholder="Enter your name">
             <label for="budget">Total Budget</label>
-            <input id="budget" type="number" min="0" step="0.01"
-                   placeholder="Enter your budget">
-
+            <input id="budget" type="text" inputmode="decimal" placeholder="Enter your budget">
             <button onclick="startTracker()">
                 Start Tracking
             </button>
@@ -242,8 +240,15 @@
                 </button>
                 <button onclick="showScene('searchScene')">
                     Search Expenses
+                </button>
+                <button onclick="showItems()">
+                    View Items
+                </button>
                 <button onclick="sortExpensesByDate()">
                     Sort by Date
+                </button>
+                <button onclick="sortExpensesById()">
+                    Sort by ID
                 </button>
             </div>
         </div>
@@ -256,7 +261,7 @@
             <input id="description" type="text"
                    placeholder="e.g. Groceries">
             <label for="cost">Cost per item</label>
-            <input id="cost" type="number"
+            <input id="cost" type="decimal"
                    min="0.01" step="0.01">
             <label for="category">Category</label>
             <input id="category" type="text"
@@ -278,7 +283,12 @@
             </button>
             <button class="secondary"
                     onclick="showScene('dashboardScene')">
-                Cancel
+                    ← Back to Dashboard
+            </button>
+
+            <button class="danger"
+                    onclick="cancelExpense()">
+                    Cancel Expense
             </button>
             <div id="addMessage"></div>
         </div>
@@ -306,6 +316,32 @@
                 </thead>
                 <tbody id="expenseTable"></tbody>
             </table>
+        </div>
+    </section>
+    <!-- SCENE: ITEMS LIST -->
+    <section id="itemsScene" class="scene">
+        <div class="form-container">
+
+            <button class="secondary back"
+                    onclick="showScene('dashboardScene')">
+                ← Dashboard
+            </button>
+
+            <h2>Purchased Items</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Unit Cost</th>
+                        <th>Date Purchased</th>
+                        <th>Quantity</th>
+                    </tr>
+                </thead>
+
+                <tbody id="itemsTable"></tbody>
+            </table>
+
         </div>
     </section>
     <!-- SCENE 5: SEARCH -->
@@ -344,7 +380,7 @@
             <label>Description</label>
             <input id="editDescription" type="text">
             <label>Cost per item</label>
-            <input id="editCost" type="number"
+            <input id="editCost" type="decimal"
                    min="0.01" step="0.01">
             <label>Category</label>
             <input id="editCategory" type="text">

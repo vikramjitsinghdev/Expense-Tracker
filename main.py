@@ -4,6 +4,8 @@
 from flask import Flask, render_template
 # Importing datetime module to validate date input
 from datetime import datetime
+#Import the Decimal library for data verification
+from decimal import Decimal, InvalidOperation
 """
 Flask Application
 """
@@ -32,12 +34,36 @@ def validate_expense_data(data):
         raise ValueError("Description cannot be empty.")
     # Validate unit cost
     unit_cost = data.get("unit_cost")
+    if unit_cost is None:
+        raise ValueError("Cost is required.")
+    unit_cost_text = str(unit_cost).strip()
+    if "e" in unit_cost_text.lower():
+        raise ValueError(
+            "Scientific notation is not allowed."
+        )
     try:
-        unit_cost = float(unit_cost)
-    except (TypeError, ValueError):
-        raise ValueError("Cost must be a valid number.")
+        unit_cost = Decimal(unit_cost_text)
+    except (InvalidOperation, ValueError, TypeError):
+        raise ValueError(
+            "Cost must be a valid number."
+        )
+
+    if not unit_cost.is_finite():
+        raise ValueError(
+            "Cost must be a finite number."
+        )
+
     if unit_cost <= 0:
-        raise ValueError("Cost must be greater than 0.")
+        raise ValueError(
+            "Cost must be greater than 0."
+        )
+
+    MAX_UNIT_COST = Decimal("1000000")
+
+    if unit_cost > MAX_UNIT_COST:
+        raise ValueError(
+            "Cost is too large."
+        )
     # Validate category
     category = data.get("category", "").strip()
     if not category:
@@ -58,15 +84,22 @@ def validate_expense_data(data):
             "Please enter credit, debit, cash, or other."
         )
     # Validate quantity
+    MAX_QUANTITY = 100000
     try:
         amount = int(data.get("amount"))
     except (TypeError, ValueError):
         raise ValueError(
             "Quantity must be a whole number."
         )
+
     if amount < 1:
         raise ValueError(
             "Quantity must be at least 1."
+        )
+
+    if amount > MAX_QUANTITY:
+        raise ValueError(
+            "Quantity is too large."
         )
     # Return the cleaned and validated information
     return {

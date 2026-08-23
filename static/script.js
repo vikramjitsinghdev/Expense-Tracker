@@ -27,7 +27,26 @@ async function startTracker() {
     const nameElement = document.getElementById("name");
     const budgetElement = document.getElementById("budget");
     const name = nameElement.value.trim();
-    const budget = Number(budgetElement.value);
+    const budgetText = budgetElement.value.trim();
+    if (!name) {
+        showMessage("Please enter your name.",
+            "setupMessage"
+        );
+        return;
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(budgetText)) {
+        showMessage("Please enter a valid budget.",
+            "setupMessage"
+        );
+        return;
+    }
+    const budget = Number(budgetText);
+    if (!Number.isFinite(budget) || budget <= 0) {
+        showMessage("Please enter a valid budget.",
+            " setupMessage"
+        );
+        return;
+    }
     /*
     Frontend validation
     */
@@ -38,7 +57,7 @@ async function startTracker() {
         );
         return;
     }
-    if (isNaN(budget) || budget < 0) {
+    if (!Number.isFinite(budget) || budget <= 0) {
         showMessage(
             "Please enter a valid budget.",
             "setupMessage"
@@ -124,30 +143,31 @@ async function addExpense() {
         );
         return;
     }
-    if (isNaN(unitCost) || unitCost <= 0) {
-        showMessage(
-            "Cost must be greater than 0.",
-            "addMessage"
-        );
-        return;
+    if (!Number.isFinite(unitCost) || unitCost <= 0) {
+    showMessage(
+        "Cost must be greater than 0.",
+        "addMessage"
+    );
+    return;
     }
     if (!category) {
-        showMessage(
-            "Category cannot be empty.",
+        showMessage("Category cannot be empty.",
             "addMessage"
         );
         return;
     }
-    if (isNaN(amount) || amount < 1) {
-        showMessage(
-            "Quantity must be at least 1.",
-            "addMessage"
-        );
-        return;
+    if (
+    !Number.isSafeInteger(amount) ||
+    amount < 1 ||
+    amount > 100000) 
+    {
+    showMessage("Quantity must be between 1 and 100000.",
+        "addMessage"
+    );
+    return;
     }
     if (!date) {
-        showMessage(
-            "Please select a date.",
+        showMessage("Please select a date.",
             "addMessage"
         );
         return;
@@ -601,4 +621,42 @@ function showScene(sceneId) {
     if (target) {
         target.classList.add("active");
     }
+}
+function cancelExpense() {
+    clearAddForm();
+    showScene("dashboardScene");
+}
+/*
+DISPLAY ITEMS
+*/
+async function showItems(){
+    const expenses = await getExpenses();
+    const table = document.getElementById("itemsTable");
+    if (!table) {
+        return;
+    }
+    table.innerHTML = "";
+    if (expenses.length === 0) {
+        table.innerHTML = `
+            <tr>
+                <td colspan="4">
+                    No items recorded.
+                </td>
+            </tr>
+        `;
+        showScene("itemsScene");
+        return;
+    }
+    expenses.forEach(expense => {
+        const unitCost =Number(expense.cost) / Number(expense.amount);
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${expense.description}</td>
+            <td>$${unitCost.toFixed(2)}</td>
+            <td>${expense.date}</td>
+            <td>${expense.amount}</td>
+        `;
+        table.appendChild(row);
+    });
+    showScene("itemsScene");
 }
