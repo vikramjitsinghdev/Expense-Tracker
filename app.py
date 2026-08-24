@@ -359,7 +359,7 @@ def delete_expense(expense_id,user_id):
         DELETE FROM expenses
         WHERE id = ?
         AND user_id = ?
-    """, (expense_id,))
+    """, (expense_id,user_id))
     connection.commit()
     connection.close()
     return deleted_expense
@@ -402,14 +402,6 @@ def save_tracker(name, budget):
         user_id = cursor.lastrowid
     else:
         user_id = user["id"]
-        connection.execute("""
-        UPDATE users
-        SET total_budget = ?
-        WHERE id = ?
-    """, (
-        float(budget),
-        user_id
-    ))
     connection.commit()
     connection.close()
     return user_id
