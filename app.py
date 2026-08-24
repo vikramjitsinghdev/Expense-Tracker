@@ -5,8 +5,17 @@ from flask import (Flask,render_template,request,jsonify,session)
 from datetime import datetime
 #Import the Decimal library for data verification
 from decimal import Decimal, InvalidOperation
-import sqlite3
 import os
+import sqlite3
+
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
+DB_NAME = os.path.join(
+    BASE_DIR,
+    "expenses.db"
+)
 # ============================================================
 # FLASK APPLICATION
 # ============================================================
@@ -17,20 +26,23 @@ app.secret_key = os.environ.get(
 # ============================================================
 # DATABASE CONFIGURATION
 # ============================================================
-DATABASE = "expenses.db"
 def get_db_connection():
-    """
-    Create and return a connection to the SQLite database.
-    """
-    connection = sqlite3.connect(DATABASE)
-    # Allows database rows to be accessed using column names.
+    connection = sqlite3.connect(DB_NAME)
     connection.row_factory = sqlite3.Row
     return connection
 def init_db():
+
+    print("====================================")
+    print("INITIALIZING DATABASE")
+    print("DATABASE PATH:", DB_NAME)
+    print("====================================")
+
     connection = get_db_connection()
+
     connection.execute("""
         PRAGMA foreign_keys = ON
     """)
+
     connection.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +50,7 @@ def init_db():
             total_budget REAL NOT NULL
         )
     """)
+
     connection.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,8 +66,24 @@ def init_db():
                 ON DELETE CASCADE
         )
     """)
+
     connection.commit()
+
+    tables = connection.execute("""
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+    """).fetchall()
+
+    print(
+        "DATABASE TABLES:",
+        [table["name"] for table in tables]
+    )
+
     connection.close()
+
+    print("DATABASE INITIALIZATION COMPLETE")
+    print("====================================")
 # ============================================================
 # HOME ROUTE
 # ============================================================
@@ -822,8 +851,15 @@ def add_budget():
 # ============================================================
 # START APPLICATION
 # ============================================================
-if __name__ == "__main__":
-    # Create database/tables before
-    # starting Flask.
+# Initialize the database when the Flask
+# application starts.
+
+@app.before_request
+def ensure_database():
     init_db()
+    
+init_db()
+
+
+if __name__ == "__main__":
     app.run(debug=True)
