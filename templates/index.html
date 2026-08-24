@@ -257,38 +257,81 @@
     <section id="addScene" class="scene">
         <div class="form-container">
             <h2>Add Expense</h2>
-            <label for="description">What did you buy?</label>
-            <input id="description" type="text"
-                   placeholder="e.g. Groceries">
-            <label for="cost">Cost per item</label>
-            <input id="cost" type="decimal"
-                   min="0.01" step="0.01">
-            <label for="category">Category</label>
-            <input id="category" type="text"
-                   placeholder="e.g. Food">
-            <label for="amount">Quantity</label>
-            <input id="amount" type="number" min="1">
-            <label for="date">Date</label>
-            <input id="date" type="date">
-            <label for="payment">Payment Method</label>
+            <label for="description">
+                What did you buy?
+            </label>
+            <input
+                id="description"
+                type="text"
+                placeholder="e.g. Groceries"
+            >
+            <label for="cost">
+                Cost per item
+            </label>
+            <input
+                id="cost"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="Enter cost"
+            >
+            <label for="category">
+                Category
+            </label>
+            <input
+                id="category"
+                type="text"
+                autocomplete="off"
+                placeholder="e.g. Food"
+            >
+            <label for="quantity">
+                Quantity
+            </label>
+            <input
+                id="quantity"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="Enter quantity"
+            >
+            <label for="date">
+                Date
+            </label>
+            <input id="date"type="date">
+            <label for="payment">
+                Payment Method
+            </label>
             <select id="payment">
-                <option value="">Select payment method</option>
-                <option value="credit">Credit</option>
-                <option value="debit">Debit</option>
-                <option value="cash">Cash</option>
-                <option value="other">Other</option>
+                <option value="">
+                    Select payment method
+                </option>
+                <option value="credit">
+                    Credit
+                </option>
+                <option value="debit">
+                    Debit
+                </option>
+                <option value="cash">
+                    Cash
+                </option>
+                <option value="other">
+                    Other
+                </option>
             </select>
-            <button class="success" onclick="addExpense()">
+            <button
+                class="success"
+                onclick="addExpense()">
                 Record Expense
             </button>
-            <button class="secondary"
-                    onclick="showScene('dashboardScene')">
-                    ← Back to Dashboard
+            <button
+                class="secondary"
+                onclick="showScene('dashboardScene')">
+                ← Back to Dashboard
             </button>
-
-            <button class="danger"
-                    onclick="cancelExpense()">
-                    Cancel Expense
+            <button
+                class="danger"
+                onclick="cancelExpense()">
+                Cancel Expense
             </button>
             <div id="addMessage"></div>
         </div>
@@ -378,14 +421,16 @@
             <h2>Edit Expense</h2>
             <input id="editId" type="hidden">
             <label>Description</label>
-            <input id="editDescription" type="text">
+            <input id="editDescription" type="text" placeholder="Edit description">
             <label>Cost per item</label>
-            <input id="editCost" type="decimal"
-                   min="0.01" step="0.01">
+            <input id="editCost" type="text" inputmode="decimal"
+                   autocomplete="off" placeholder="Enter cost">
             <label>Category</label>
-            <input id="editCategory" type="text">
+            <input id="editCategory" type="text"
+                autocomplete="off" placeholder="e.g. Food">
             <label>Quantity</label>
-            <input id="editAmount" type="number" min="1">
+            <input id="editQuantity" type="text" inputmode="numeric"
+                autocomplete="off" placeholder="Edit quantity">
             <label>Date</label>
             <input id="editDate" type="date">
             <label>Payment</label>

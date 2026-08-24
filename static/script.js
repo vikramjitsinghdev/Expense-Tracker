@@ -35,31 +35,20 @@ async function startTracker() {
         return;
     }
     if (!/^\d+(\.\d{1,2})?$/.test(budgetText)) {
-        showMessage("Please enter a valid budget.",
+        showMessage(
+            "Budget must be a valid number with up to 2 decimal places.",
             "setupMessage"
         );
         return;
     }
     const budget = Number(budgetText);
-    if (!Number.isFinite(budget) || budget <= 0) {
-        showMessage("Please enter a valid budget.",
-            " setupMessage"
-        );
-        return;
-    }
-    /*
-    Frontend validation
-    */
-    if (!name) {
+    if (
+        !Number.isFinite(budget) ||
+        budget <= 0 ||
+        budget > 1000000000
+    ) {
         showMessage(
-            "Please enter your name.",
-            "setupMessage"
-        );
-        return;
-    }
-    if (!Number.isFinite(budget) || budget <= 0) {
-        showMessage(
-            "Please enter a valid budget.",
+            "Budget must be greater than 0 and no more than $1,000,000,000.",
             "setupMessage"
         );
         return;
@@ -87,7 +76,6 @@ async function startTracker() {
                 data.error || "Unable to start tracker.",
                 "setupMessage"
             );
-
             return;
         }
         /*
@@ -112,9 +100,12 @@ async function startTracker() {
         */
         await updateDashboard();
     } catch (error) {
-        console.error(error);
+        console.error(
+            "START TRACKER ERROR:",
+            error
+        );
         showMessage(
-            "Unable to connect to the Flask server.",
+            `Error: ${error.message}`,
             "setupMessage"
         );
     }
@@ -124,18 +115,47 @@ ADD EXPENSE
 */
 async function addExpense() {
 
-    /*
-    Get values from HTML.
-    */
-    const description =document.getElementById("description").value.trim();
-    const unitCost = Number(document.getElementById("cost").value);
-    const category = document.getElementById("category").value.trim();
-    const amount = Number(document.getElementById("amount").value);
-    const date = document.getElementById("date").value;
-    const payment = document.getElementById("payment").value;
-    /*
-    Frontend validation.
-    */
+    // --------------------------------------------------------
+    // Get HTML elements
+    // --------------------------------------------------------
+    const descriptionElement = document.getElementById("description");
+    const costElement = document.getElementById("cost");
+    const categoryElement = document.getElementById("category");
+    const quantityElement = document.getElementById("quantity");
+    const dateElement = document.getElementById("date");
+    const paymentElement = document.getElementById("payment");
+    // -------------------------------------------------------
+    // Make sure all elements exist
+    // --------------------------------------------------------
+    if (
+        !descriptionElement ||
+        !costElement ||
+        !categoryElement ||
+        !quantityElement ||
+        !dateElement ||
+        !paymentElement
+    ) {
+        console.error(
+            "One or more expense form elements are missing."
+        );
+        showMessage(
+            "There is a problem with the expense form.",
+            "addMessage"
+        );
+        return;
+    }
+    // --------------------------------------------------------
+    // Get raw values
+    // --------------------------------------------------------
+    const description = descriptionElement.value.trim();
+    const costText = costElement.value.trim();
+    const category = categoryElement.value.trim();
+    const quantityText = quantityElement.value.trim();
+    const date = dateElement.value;
+    const payment = paymentElement.value;
+    // --------------------------------------------------------
+    // DESCRIPTION
+    // --------------------------------------------------------
     if (!description) {
         showMessage(
             "Description cannot be empty.",
@@ -143,35 +163,80 @@ async function addExpense() {
         );
         return;
     }
-    if (!Number.isFinite(unitCost) || unitCost <= 0) {
-    showMessage(
-        "Cost must be greater than 0.",
-        "addMessage"
-    );
-    return;
-    }
-    if (!category) {
-        showMessage("Category cannot be empty.",
-            "addMessage"
-        );
-        return;
-    }
+    // --------------------------------------------------------
+    // COST
+    // --------------------------------------------------------
     if (
-    !Number.isSafeInteger(amount) ||
-    amount < 1 ||
-    amount > 100000) 
-    {
-    showMessage("Quantity must be between 1 and 100000.",
-        "addMessage"
-    );
-    return;
-    }
-    if (!date) {
-        showMessage("Please select a date.",
+        !/^\d+(\.\d{1,2})?$/.test(costText)
+    ) {
+        showMessage(
+            "Cost must be a valid number with up to 2 decimal places.",
             "addMessage"
         );
         return;
     }
+    const unitCost =
+        Number(costText);
+    if (
+        !Number.isFinite(unitCost) ||
+        unitCost <= 0 ||
+        unitCost > 1000000
+    ) {
+        showMessage(
+            "Cost must be greater than 0 and no more than $1,000,000.",
+            "addMessage"
+        );
+        return;
+    }
+    // --------------------------------------------------------
+    // CATEGORY
+    // --------------------------------------------------------
+    if (
+        !/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(category)
+    ) {
+        showMessage(
+            "Category must contain letters and spaces only.",
+            "addMessage"
+        );
+        return;
+    }
+    // --------------------------------------------------------
+    // QUANTITY
+    // --------------------------------------------------------
+    if (!/^\d+$/.test(quantityText)) {
+
+        showMessage(
+            "Quantity must be a whole number.",
+            "addMessage"
+        );
+        return;
+    }
+    const quantity =
+        Number(quantityText);
+    if (
+        !Number.isSafeInteger(quantity) ||
+        quantity < 1 ||
+        quantity > 100000
+    ) {
+        showMessage(
+            "Quantity must be between 1 and 100000.",
+            "addMessage"
+        );
+        return;
+    }
+    // --------------------------------------------------------
+    // DATE
+    // --------------------------------------------------------
+    if (!date) {
+        showMessage(
+            "Please select a date.",
+            "addMessage"
+        );
+        return;
+    }
+    // --------------------------------------------------------
+    // PAYMENT
+    // --------------------------------------------------------
     if (!payment) {
         showMessage(
             "Please select a payment method.",
@@ -179,54 +244,57 @@ async function addExpense() {
         );
         return;
     }
-    /*
-    Send the expense to Flask.
-    */
+    // --------------------------------------------------------
+    // SEND DATA TO FLASK
+    // --------------------------------------------------------
     try {
-        const response = await fetch("/api/expenses",
+        const response = await fetch(
+            "/api/expenses",
             {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
                 body: JSON.stringify({
                     description: description,
                     unit_cost: unitCost,
                     category: category,
-                    amount: amount,
+                    amount: quantity,
                     date: date,
                     payment: payment
                 })
             }
         );
-        const data = await response.json();
-        /*
-        Handle backend errors.
-        */
+        const data =
+            await response.json();
+        // ----------------------------------------------------
+        // Backend rejected request
+        // ----------------------------------------------------
         if (!response.ok) {
             showMessage(
-                data.error || "Unable to add expense.",
+                data.error ||
+                "Unable to add expense.",
                 "addMessage"
             );
             return;
         }
-        /*
-        Clear the form.
-        */
+        // ----------------------------------------------------
+        // Successfully added
+        // ----------------------------------------------------
         clearAddForm();
-        /*
-        Update dashboard using backend data.
-        */
         await updateDashboard();
-        /*
-        Tell the user the expense was added.
-        */
         showMessage(
             "Expense recorded successfully.",
             "addMessage"
         );
     } catch (error) {
-        console.error(error);
+        console.error(
+            "ADD EXPENSE ERROR:",
+            error
+        );
         showMessage(
-            "Unable to connect to the Flask server.",
+            `Error: ${error.message}`,
             "addMessage"
         );
     }
@@ -238,10 +306,12 @@ function clearAddForm() {
     clearInput("description");
     clearInput("cost");
     clearInput("category");
-    clearInput("amount");
+    clearInput("quantity");
     clearInput("date");
-    const payment = document.getElementById("payment");
-    if (payment) { payment.value = "";}
+    const payment =document.getElementById("payment");
+    if (payment) {payment.value = "";}
+    const message = document.getElementById("addMessage");
+    if (message) {message.textContent = "";}
 }
 /*
 GET ALL EXPENSES
@@ -399,7 +469,7 @@ function displaySearchResult(expense) {document.getElementById("searchResults").
             <br>
             Category:${expense.category}
             <br>
-            Quantity:${expense.amount}
+            Quantity:${expense.quantity}
             <br>
             Cost:$${Number(expense.cost).toFixed(2)}
             <br>
@@ -414,66 +484,68 @@ EDIT EXPENSE
 */
 async function editExpense(id) {
     try {
-        const response = await fetch(`/api/expenses/${id}`);
-        const expense = await response.json();
+        const response =await fetch(`/api/expenses/${id}`);
+        const expense =await response.json();
         if (!response.ok) {
             alert(expense.error ||"Expense not found.");
             return;
         }
-        /*
-        Put backend data into the edit form.
-        */
-        document.getElementById("editId").value =expense.id;
-        document.getElementById("editDescription").value =expense.description;
-        /*
-        The backend stores total cost, while the edit form asks for unit cost.
-        Therefore: unit cost = total cost / quantity
-        */
-        document.getElementById("editCost").value =Number(expense.cost / expense.amount).toFixed(2);
-        document.getElementById("editCategory").value =expense.category;
-        document.getElementById("editAmount").value =expense.amount;
-        document.getElementById("editDate").value =expense.date;
-        document.getElementById("editPayment").value =expense.payment;
+        document.getElementById("editId").value = expense.id;
+        document.getElementById("editDescription").value = expense.description;
+        document.getElementById("editCost").value =Number(expense.unit_cost).toFixed(2);
+        document.getElementById("editCategory").value = expense.category;
+        document.getElementById("editAmount").value = expense.amount;
+        document.getElementById("editDate").value = expense.date;
+        document.getElementById("editPayment").value = expense.payment;
         showScene("editScene");
     } catch (error) {
-        console.error(error);
+        console.error("EDIT EXPENSE ERROR:",
+            error
+        );
+        alert(`Error: ${error.message}`);
     }
 }
 /*
 SAVE EDIT
 */
 async function saveEdit() {
-    const id = Number(document.getElementById("editId").value);
-    const data = {description:document.getElementById("editDescription").value.trim(),
-        unit_cost:Number(document.getElementById("editCost").value),
-        category:document.getElementById("editCategory").value.trim(),
-        amount:Number(document.getElementById("editAmount").value),
-        date:document.getElementById("editDate").value,
-        payment:document.getElementById("editPayment").value
+    const id = Number( document.getElementById("editId").value);
+    const data = {
+        description:
+            document.getElementById("editDescription").value.trim(),
+        unit_cost:
+            document.getElementById("editCost").value.trim(),
+        category:
+            document.getElementById("editCategory").value.trim(),
+        amount:
+            document.getElementById("editAmount").value.trim(),
+        date:
+            document.getElementById("editDate").value,
+        payment:
+            document.getElementById("editPayment").value
     };
     try {
-        const response = await fetch(`/api/expenses/${id}`,
+        const response =
+            await fetch(`/api/expenses/${id}`,
                 {
-                    method: "PUT",headers: {"Content-Type": "application/json"},
+                    method: "PUT",
+                    headers: {"Content-Type":"application/json"
+                    },
                     body: JSON.stringify(data)
                 }
             );
-        const result = await response.json();
+        const result =await response.json();
         if (!response.ok) {
-            alert(result.error || "Unable to update expense.");
+            alert(result.error ||"Unable to update expense.");
             return;
         }
-        /*
-        Refresh backend information.
-        */
         await updateDashboard();
-        /*
-        Return to expense list.
-        */
         await showExpenses();
     } catch (error) {
-        console.error(error);
-        alert("Unable to connect to the Flask server.");
+        console.error("SAVE EDIT ERROR:",
+            error
+        );
+        alert(`Error: ${error.message}`);
     }
 }
 /*
@@ -563,9 +635,7 @@ function displayExpenses(expenses) {
             <td>${expense.description}</td>
             <td>${expense.category}</td>
             <td>${expense.amount}</td>
-            <td>
-                $${Number(expense.cost).toFixed(2)}
-            </td>
+            <td>$${Number(expense.cost).toFixed(2)}</td>
             <td>${expense.date}</td>
             <td>${expense.payment}</td>
             <td class="actions">
@@ -629,34 +699,61 @@ function cancelExpense() {
 /*
 DISPLAY ITEMS
 */
-async function showItems(){
-    const expenses = await getExpenses();
-    const table = document.getElementById("itemsTable");
-    if (!table) {
-        return;
-    }
-    table.innerHTML = "";
-    if (expenses.length === 0) {
-        table.innerHTML = `
-            <tr>
-                <td colspan="4">
-                    No items recorded.
+async function showItems() {
+    try {
+        const response = await fetch("/api/items");
+
+        const items = await response.json();
+
+        const table = document.getElementById("itemsTable");
+        if (!table) {
+            return;
+        }
+        table.innerHTML = "";
+        if (!response.ok) {
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4">
+                        ${items.error ||
+                        "Unable to retrieve items."}
+                    </td>
+                </tr>
+            `;
+            showScene("itemsScene");
+            return;
+        }
+        if (items.length === 0) {
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4">
+                        No items recorded.
+                    </td>
+                </tr>
+            `;
+            showScene("itemsScene");
+            return;
+        }
+        items.forEach(item => {
+            const row =
+                document.createElement("tr");
+            row.innerHTML = `
+                <td>${item.item}</td>
+                <td>
+                    $${Number(
+                        item.unit_cost
+                    ).toFixed(2)}
                 </td>
-            </tr>
-        `;
+                <td>${item.date}</td>
+                <td>${item.quantity}</td>
+            `;
+            table.appendChild(row);
+        });
         showScene("itemsScene");
-        return;
+    } catch (error) {
+        console.error(error);
+        showMessage(
+            "Unable to connect to the Flask server.",
+            "message"
+        );
     }
-    expenses.forEach(expense => {
-        const unitCost =Number(expense.cost) / Number(expense.amount);
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${expense.description}</td>
-            <td>$${unitCost.toFixed(2)}</td>
-            <td>${expense.date}</td>
-            <td>${expense.amount}</td>
-        `;
-        table.appendChild(row);
-    });
-    showScene("itemsScene");
 }
