@@ -706,6 +706,116 @@ def get_items():
             "quantity":row["quantity"]
         })
     return jsonify(items)
+# used to create a line chart for the users
+@app.route("/api/chart-data", methods=["GET"])
+def get_chart_data():
+
+    user_id = session.get("user_id")
+
+    if user_id is None:
+        return jsonify({
+            "error": "Please start the tracker first."
+        }), 401
+
+    connection = get_db_connection()
+
+    rows = connection.execute("""
+        SELECT
+            id,
+            date,
+            description,
+            unit_cost,
+            quantity,
+            (unit_cost * quantity) AS total
+        FROM expenses
+        WHERE user_id = ?
+        ORDER BY date ASC, id ASC
+    """, (user_id,)).fetchall()
+
+    user = connection.execute("""
+        SELECT total_budget
+        FROM users
+        WHERE id = ?
+    """, (user_id,)).fetchone()
+
+    connection.close()
+
+    expenses_data = []
+
+    for row in rows:
+        expenses_data.append({
+            "id": row["id"],
+            "date": row["date"],
+            "description": row["description"],
+            "total": float(row["total"])
+        })
+
+    return jsonify({
+        "budget": float(user["total_budget"]),
+        "expenses": expenses_data
+    })
+@app.route("/api/budget/add",methods=["POST"])
+def add_budget():
+    try:
+        user_id = session.get("user_id")
+        if user_id is None:
+            return jsonify({
+                "error":"Please start the tracker first."
+            }), 401
+        data = request.get_json()
+        amount_raw = data.get("amount")
+        if amount_raw is None:
+            return jsonify({
+                "error":"Please enter an amount."
+            }), 400
+        amount_text = str(amount_raw).strip()
+        if "e" in amount_text.lower():
+            return jsonify({
+                "error":"Scientific notation is not allowed."
+            }), 400
+        try:
+            amount = Decimal(amount_text)
+        except (
+            InvalidOperation,
+            ValueError,
+            TypeError
+        ):
+            return jsonify({
+                "error":"Please enter a valid amount."
+            }), 400
+        if not amount.is_finite():
+            return jsonify({
+                "error":"Amount must be finite."
+            }), 400
+        if amount <= 0:
+            return jsonify({
+                "error":"Amount must be greater than 0."
+            }), 400
+        connection = get_db_connection()
+        connection.execute("""
+            UPDATE users
+            SET total_budget = total_budget + ?
+            WHERE id = ?
+        """, (float(amount),user_id))
+        connection.commit()
+        user = connection.execute("""
+                SELECT total_budget
+                FROM users
+                WHERE id = ?
+            """, (user_id,)).fetchone()
+        connection.close()
+        return jsonify({
+            "message":
+                "Budget increased successfully.",
+            "total_budget":
+                float(user["total_budget"])
+        })
+
+    except Exception as error:
+
+        return jsonify({
+            "error": str(error)
+        }), 500
 # ============================================================
 # START APPLICATION
 # ============================================================

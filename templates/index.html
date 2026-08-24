@@ -133,6 +133,17 @@
             padding: 18px;
             font-size: 16px;
         }
+        /* Invalid input styling */
+        .input-error {
+            border: 2px solid #dc3545 !important;
+            background-color: #fff0f0;
+        }
+        .input-error:focus {
+            outline: none;
+            box-shadow:
+                0 0 0 3px
+                rgba(220, 53, 69, 0.2);
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -249,6 +260,9 @@
                 </button>
                 <button onclick="sortExpensesById()">
                     Sort by ID
+                </button>
+                <button onclick="showSpendingHistory()">
+                    Spending History
                 </button>
             </div>
         </div>
@@ -450,7 +464,23 @@
             </button>
         </div>
     </section>
+    <!-- SCENE 7: Spending History -->
+    <section id="historyScene" class="scene">
+        <div class="form-container">
+            <h2>Spending History</h2>
+            <div class="chart-container">
+                <canvas id="spendingChart"></canvas>
+            </div>
+            <button
+                class="secondary"
+                onclick="showScene('dashboardScene')">
+                ← Back to Dashboard
+            </button>
+        </div>
+    </section>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

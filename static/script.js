@@ -3,6 +3,7 @@ GLOBAL FRONTEND STATE
 */
 // Stores the current user's name for displaying it in the UI.
 let userName = "";
+let spendingChart = null;
 /*
 UTILITY FUNCTIONS
 */
@@ -156,9 +157,10 @@ async function addExpense() {
     // --------------------------------------------------------
     // DESCRIPTION
     // --------------------------------------------------------
-    if (!description) {
-        showMessage(
-            "Description cannot be empty.",
+    if (!description) 
+        {
+        markInvalid("description");
+        showMessage("Description cannot be empty.",
             "addMessage"
         );
         return;
@@ -166,19 +168,17 @@ async function addExpense() {
     // --------------------------------------------------------
     // COST
     // --------------------------------------------------------
-    if (
-        !/^\d+(\.\d{1,2})?$/.test(costText)
-    ) {
+    if (!/^\d+(\.\d{1,2})?$/.test(costText)) 
+        {
+        markInvalid("cost");
         showMessage(
             "Cost must be a valid number with up to 2 decimal places.",
             "addMessage"
         );
         return;
     }
-    const unitCost =
-        Number(costText);
-    if (
-        !Number.isFinite(unitCost) ||
+    const unitCost = Number(costText);
+    if (!Number.isFinite(unitCost) ||
         unitCost <= 0 ||
         unitCost > 1000000
     ) {
@@ -191,9 +191,9 @@ async function addExpense() {
     // --------------------------------------------------------
     // CATEGORY
     // --------------------------------------------------------
-    if (
-        !/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(category)
-    ) {
+    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(category)) 
+        {
+        markInvalid("category");
         showMessage(
             "Category must contain letters and spaces only.",
             "addMessage"
@@ -203,18 +203,17 @@ async function addExpense() {
     // --------------------------------------------------------
     // QUANTITY
     // --------------------------------------------------------
-    if (!/^\d+$/.test(quantityText)) {
-
+    if (!/^\d+$/.test(quantityText))
+        {
+        markInvalid("quantity");
         showMessage(
             "Quantity must be a whole number.",
             "addMessage"
         );
         return;
     }
-    const quantity =
-        Number(quantityText);
-    if (
-        !Number.isSafeInteger(quantity) ||
+    const quantity = Number(quantityText);
+    if (!Number.isSafeInteger(quantity) ||
         quantity < 1 ||
         quantity > 100000
     ) {
@@ -227,9 +226,10 @@ async function addExpense() {
     // --------------------------------------------------------
     // DATE
     // --------------------------------------------------------
-    if (!date) {
-        showMessage(
-            "Please select a date.",
+    if (!date)
+        {
+        markInvalid("date");
+        showMessage("Please select a date.",
             "addMessage"
         );
         return;
@@ -237,9 +237,10 @@ async function addExpense() {
     // --------------------------------------------------------
     // PAYMENT
     // --------------------------------------------------------
-    if (!payment) {
-        showMessage(
-            "Please select a payment method.",
+    if (!payment) 
+        {
+        markInvalid("payment");
+        showMessage("Please select a payment method.",
             "addMessage"
         );
         return;
@@ -456,6 +457,90 @@ async function searchByDate() {
         console.error(error);
     }
 }
+async function showSpendingHistory() {
+    try {
+        const response =await fetch("/api/chart-data");
+        const data =await response.json();
+
+        if (!response.ok) {
+            showMessage(
+                data.error ||
+                "Unable to load spending history.",
+                "message"
+            );
+            return;
+        }
+        const labels =
+            data.expenses.map(expense => expense.date);
+        const expenseTotals =
+            data.expenses.map(
+                expense => expense.total
+            );
+        const budgetLine =
+            data.expenses.map(() => data.budget);
+        showScene("historyScene");
+        const canvas =
+            document.getElementById("spendingChart");
+        if (spendingChart) {spendingChart.destroy();}
+        spendingChart =
+            new Chart(
+                canvas,
+                {
+                    type: "line",
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label:
+                                    "Expense Amount",
+                                data:
+                                    expenseTotals,
+                                tension: 0.3,
+                                fill: false,
+                                pointRadius: 5
+                            },
+                            {
+                                label:
+                                    "Total Budget",
+                                data:
+                                    budgetLine,
+                                tension: 0,
+                                fill: false,
+                                borderDash:
+                                    [8, 5],
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio:false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+
+                                title: {display: true,
+                                    text:"Money ($)"
+                                }
+                            },
+                            x: {
+                                title: {display: true,
+                                    text:"Purchase Date"
+                                }
+                            }
+                        }
+                    }
+                }
+            );
+    } catch (error) {
+        console.error("CHART ERROR:",
+            error
+        );
+        showMessage(`Error: ${error.message}`,
+            "message"
+        );
+    }
+}
 /*
 DISPLAY SEARCH RESULT
 */
@@ -478,6 +563,19 @@ function displaySearchResult(expense) {document.getElementById("searchResults").
             Payment:${expense.payment}
         </div>
     `;
+}
+//functions for invalid fields
+function markInvalid(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.classList.add("input-error");
+    }
+}
+function clearInvalid(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.classList.remove("input-error");
+    }
 }
 /*
 EDIT EXPENSE
@@ -696,15 +794,44 @@ function cancelExpense() {
     clearAddForm();
     showScene("dashboardScene");
 }
+function setupValidationStyling() {
+    const fields = [
+        "description",
+        "cost",
+        "category",
+        "quantity",
+        "date",
+        "payment"
+    ];
+    fields.forEach(id => {
+        const element = document.getElementById(id);
+        if (!element) {
+            return;
+        }
+        element.addEventListener("input",
+            function () {
+                clearInvalid(id);
+            }
+        );
+        element.addEventListener("change",
+            function () {
+                clearInvalid(id);
+            }
+        );
+    });
+}
+document.addEventListener("DOMContentLoaded",
+    function () {
+        setupValidationStyling();
+    }
+);
 /*
 DISPLAY ITEMS
 */
 async function showItems() {
     try {
         const response = await fetch("/api/items");
-
         const items = await response.json();
-
         const table = document.getElementById("itemsTable");
         if (!table) {
             return;
