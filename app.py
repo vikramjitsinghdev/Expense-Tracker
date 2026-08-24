@@ -6,11 +6,14 @@ from datetime import datetime
 #Import the Decimal library for data verification
 from decimal import Decimal, InvalidOperation
 import sqlite3
+import os
 # ============================================================
 # FLASK APPLICATION
 # ============================================================
 app = Flask(__name__)
-app.secret_key = "expense-tracker-development-key"
+app.secret_key = os.environ.get(
+    "SECRET_KEY"
+)
 # ============================================================
 # DATABASE CONFIGURATION
 # ============================================================
