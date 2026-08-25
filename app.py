@@ -59,26 +59,36 @@ app.config.update(
 # ============================================================
 # DATABASE CONNECTION
 # ============================================================
-
 def get_db_connection():
     """
     Create and return a SQLite database connection.
     """
 
     connection = sqlite3.connect(
-        DB_NAME
+        DB_NAME,
+        timeout=10
     )
 
     connection.row_factory = sqlite3.Row
 
-    # Make sure foreign keys are enforced.
+    # Enable foreign-key enforcement.
     connection.execute(
         "PRAGMA foreign_keys = ON"
     )
 
+    # Allow SQLite to handle concurrent readers/writers
+    # more efficiently.
+    connection.execute(
+        "PRAGMA journal_mode = WAL"
+    )
+
+    # Wait for a busy database instead of immediately
+    # throwing "database is locked".
+    connection.execute(
+        "PRAGMA busy_timeout = 10000"
+    )
+
     return connection
-
-
 # ============================================================
 # DATABASE INITIALIZATION
 # ============================================================
@@ -478,109 +488,105 @@ def get_tracker():
 
 
 def save_tracker(name, budget):
-    """
-    Create a new user if the name does not exist.
-
-    If the user already exists, return their existing
-    user ID without overwriting their current budget.
-    """
 
     connection = get_db_connection()
 
-    user = connection.execute("""
-        SELECT
-            id
-        FROM users
-        WHERE name = ?
-    """, (
-        name,
-    )).fetchone()
+    try:
 
-    if user is None:
-
-        cursor = connection.execute("""
-            INSERT INTO users (
-                name,
-                total_budget
-            )
-            VALUES (?, ?)
+        user = connection.execute("""
+            SELECT id
+            FROM users
+            WHERE name = ?
         """, (
             name,
-            float(budget)
-        ))
+        )).fetchone()
 
-        user_id = cursor.lastrowid
+        if user is None:
 
-    else:
+            cursor = connection.execute("""
+                INSERT INTO users (
+                    name,
+                    total_budget
+                )
+                VALUES (?, ?)
+            """, (
+                name,
+                float(budget)
+            ))
 
-        # Existing user:
-        # DO NOT overwrite their budget.
-        user_id = user["id"]
+            user_id = cursor.lastrowid
 
-    connection.commit()
+        else:
 
-    connection.close()
+            user_id = user["id"]
 
-    return user_id
+        connection.commit()
 
+        return user_id
 
+    except Exception:
+
+        connection.rollback()
+        raise
+
+    finally:
+
+        connection.close()
 # ============================================================
 # EXPENSE DATABASE FUNCTIONS
 # ============================================================
 
 def add_expense(data, user_id):
-    """
-    Validate and add a new expense for the
-    currently logged-in user.
-    """
 
-    validated = validate_expense_data(
-        data
-    )
+    validated = validate_expense_data(data)
 
     connection = get_db_connection()
 
-    cursor = connection.execute("""
-        INSERT INTO expenses (
+    try:
+
+        cursor = connection.execute("""
+            INSERT INTO expenses (
+                user_id,
+                description,
+                unit_cost,
+                quantity,
+                category,
+                date,
+                payment
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
             user_id,
-            description,
-            unit_cost,
-            quantity,
-            category,
-            date,
-            payment
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        user_id,
-        validated["description"],
-        float(validated["unit_cost"]),
-        validated["amount"],
-        validated["category"],
-        validated["date"],
-        validated["payment"]
-    ))
+            validated["description"],
+            float(validated["unit_cost"]),
+            validated["amount"],
+            validated["category"],
+            validated["date"],
+            validated["payment"]
+        ))
 
-    connection.commit()
+        connection.commit()
 
-    expense_id = cursor.lastrowid
+        expense_id = cursor.lastrowid
 
-    row = connection.execute("""
-        SELECT *
-        FROM expenses
-        WHERE id = ?
-        AND user_id = ?
-    """, (
-        expense_id,
-        user_id
-    )).fetchone()
+        row = connection.execute("""
+            SELECT *
+            FROM expenses
+            WHERE id = ?
+            AND user_id = ?
+        """, (
+            expense_id,
+            user_id
+        )).fetchone()
 
-    connection.close()
+        return expense_row_to_dict(row)
 
-    return expense_row_to_dict(
-        row
-    )
+    except Exception:
+        connection.rollback()
+        raise
 
+    finally:
+        connection.close()
 
 def search_by_id(
     expense_id,
@@ -1476,7 +1482,6 @@ def get_items():
 # ============================================================
 # API — SPENDING HISTORY / CHART DATA
 # ============================================================
-
 @app.route(
     "/api/chart-data",
     methods=["GET"]
@@ -1496,10 +1501,8 @@ def get_chart_data():
 
     connection = get_db_connection()
 
-    # Retrieve user's current budget.
     user = connection.execute("""
-        SELECT
-            total_budget
+        SELECT total_budget
         FROM users
         WHERE id = ?
     """, (
@@ -1515,7 +1518,6 @@ def get_chart_data():
                 "User account could not be found."
         }), 404
 
-    # Retrieve expenses.
     rows = connection.execute("""
         SELECT
             id,
@@ -1538,24 +1540,18 @@ def get_chart_data():
     for row in rows:
 
         expenses_data.append({
-            "id":
-                row["id"],
-            "date":
-                row["date"],
-            "description":
-                row["description"],
-            "total":
-                float(row["total"])
+            "id": row["id"],
+            "date": row["date"],
+            "description": row["description"],
+            "total": float(row["total"])
         })
 
     return jsonify({
-        "budget":
-            float(user["total_budget"]),
-        "expenses":
-            expenses_data
+        "budget": float(
+            user["total_budget"]
+        ),
+        "expenses": expenses_data
     })
-
-
 # ============================================================
 # API — ADD TO BUDGET
 # ============================================================
@@ -1740,16 +1736,10 @@ def add_budget():
 # Otherwise the database would be initialized
 # on every HTTP request.
 # ============================================================
-
+# Database initialization
 init_db()
 
 
-# ============================================================
-# RUN APPLICATION LOCALLY
-# ============================================================
-
+# Run locally
 if __name__ == "__main__":
-
-    app.run(
-        debug=True
-    )
+    app.run(debug=True)
