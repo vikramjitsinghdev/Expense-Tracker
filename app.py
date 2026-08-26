@@ -123,22 +123,24 @@ def init_db():
     # --------------------------------------------------------
 
     connection.execute("""
-        CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            description TEXT NOT NULL,
-            unit_cost REAL NOT NULL,
-            quantity INTEGER NOT NULL,
-            category TEXT NOT NULL,
-            date TEXT NOT NULL,
-            payment TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        expense_number INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        unit_cost REAL NOT NULL,
+        quantity INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        date TEXT NOT NULL,
+        payment TEXT NOT NULL,
 
-            FOREIGN KEY (user_id)
-                REFERENCES users(id)
-                ON DELETE CASCADE
-        )
-    """)
+        FOREIGN KEY (user_id)
+            REFERENCES users(id)
+            ON DELETE CASCADE,
 
+        UNIQUE(user_id, expense_number)
+    )
+""")
     connection.commit()
 
     # Diagnostic information printed only during startup.
@@ -411,10 +413,6 @@ def validate_expense_data(data):
 # ============================================================
 
 def expense_row_to_dict(row):
-    """
-    Convert a SQLite expense row into a
-    dictionary suitable for JSON.
-    """
 
     unit_cost = float(
         row["unit_cost"]
@@ -430,6 +428,7 @@ def expense_row_to_dict(row):
 
     return {
         "id": row["id"],
+        "expense_number": row["expense_number"],
         "description": row["description"],
         "cost": total_cost,
         "unit_cost": unit_cost,
@@ -438,7 +437,6 @@ def expense_row_to_dict(row):
         "date": row["date"],
         "payment": row["payment"]
     }
-
 
 def expenses_for_json(rows):
     """
@@ -494,7 +492,9 @@ def save_tracker(name, budget):
     try:
 
         user = connection.execute("""
-            SELECT id
+            SELECT
+                id,
+                total_budget
             FROM users
             WHERE name = ?
         """, (
@@ -520,6 +520,28 @@ def save_tracker(name, budget):
 
             user_id = user["id"]
 
+            current_budget = Decimal(
+                str(user["total_budget"])
+            )
+
+            new_budget = (
+                current_budget + budget
+            )
+
+            if new_budget > MAX_BUDGET:
+                raise ValueError(
+                    "Total budget is too large."
+                )
+
+            connection.execute("""
+                UPDATE users
+                SET total_budget = ?
+                WHERE id = ?
+            """, (
+                float(new_budget),
+                user_id
+            ))
+
         connection.commit()
 
         return user_id
@@ -544,9 +566,24 @@ def add_expense(data, user_id):
 
     try:
 
+        # Get the next expense number for this user.
+        result = connection.execute("""
+            SELECT COALESCE(
+                MAX(expense_number),
+                0
+            ) + 1 AS next_number
+            FROM expenses
+            WHERE user_id = ?
+        """, (
+            user_id,
+        )).fetchone()
+
+        expense_number = result["next_number"]
+
         cursor = connection.execute("""
             INSERT INTO expenses (
                 user_id,
+                expense_number,
                 description,
                 unit_cost,
                 quantity,
@@ -554,9 +591,10 @@ def add_expense(data, user_id):
                 date,
                 payment
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
+            expense_number,
             validated["description"],
             float(validated["unit_cost"]),
             validated["amount"],
@@ -588,12 +626,12 @@ def add_expense(data, user_id):
     finally:
         connection.close()
 
-def search_by_id(
-    expense_id,
+def search_by_expense_number(
+    expense_number,
     user_id
 ):
     """
-    Search for an expense belonging
+    Search for an expense number belonging
     to the current user.
     """
 
@@ -602,17 +640,16 @@ def search_by_id(
     row = connection.execute("""
         SELECT *
         FROM expenses
-        WHERE id = ?
+        WHERE expense_number = ?
         AND user_id = ?
     """, (
-        expense_id,
+        expense_number,
         user_id
     )).fetchone()
 
     connection.close()
 
     return row
-
 
 def search_by_date(
     date,
@@ -1111,11 +1148,11 @@ def create_expense():
 # ============================================================
 
 @app.route(
-    "/api/expenses/<int:expense_id>",
+    "/api/expenses/<int:expense_number>",
     methods=["GET"]
 )
 def get_one_expense(
-    expense_id
+    expense_number
 ):
 
     user_id = session.get(
@@ -1129,8 +1166,8 @@ def get_one_expense(
                 "Please start the tracker first."
         }), 401
 
-    row = search_by_id(
-        expense_id,
+    row = search_by_expense_number(
+        expense_number,
         user_id
     )
 
@@ -1144,7 +1181,6 @@ def get_one_expense(
     return jsonify(
         expense_row_to_dict(row)
     )
-
 
 # ============================================================
 # API — SEARCH BY DATE
@@ -1556,11 +1592,15 @@ def get_chart_data():
 # API — ADD TO BUDGET
 # ============================================================
 
+# ============================================================
+# API — EDIT BUDGET
+# ============================================================
+
 @app.route(
-    "/api/budget/add",
+    "/api/budget/edit",
     methods=["POST"]
 )
-def add_budget():
+def edit_budget():
 
     try:
 
@@ -1585,6 +1625,25 @@ def add_budget():
                 "error":
                     "Invalid request data."
             }), 400
+
+        # ----------------------------------------------------
+        # Get action
+        # ----------------------------------------------------
+
+        action = str(
+            data.get("action", "")
+        ).strip().lower()
+
+        if action not in ["add", "reduce"]:
+
+            return jsonify({
+                "error":
+                    "Action must be add or reduce."
+            }), 400
+
+        # ----------------------------------------------------
+        # Get amount
+        # ----------------------------------------------------
 
         amount_raw = data.get(
             "amount"
@@ -1626,6 +1685,10 @@ def add_budget():
                     "Please enter a valid amount."
             }), 400
 
+        # ----------------------------------------------------
+        # Validate amount
+        # ----------------------------------------------------
+
         if not amount.is_finite():
 
             return jsonify({
@@ -1640,8 +1703,10 @@ def add_budget():
                     "Amount must be greater than 0."
             }), 400
 
-        # Prevent the total budget from exceeding
-        # the application's maximum budget.
+        # ----------------------------------------------------
+        # Get current budget
+        # ----------------------------------------------------
+
         connection = get_db_connection()
 
         user = connection.execute("""
@@ -1666,9 +1731,38 @@ def add_budget():
             str(user["total_budget"])
         )
 
-        new_budget = (
-            current_budget + amount
-        )
+        # ----------------------------------------------------
+        # Calculate new budget
+        # ----------------------------------------------------
+
+        if action == "add":
+
+            new_budget = (
+                current_budget + amount
+            )
+
+        else:
+
+            new_budget = (
+                current_budget - amount
+            )
+
+        # ----------------------------------------------------
+        # Prevent negative budget
+        # ----------------------------------------------------
+
+        if new_budget < 0:
+
+            connection.close()
+
+            return jsonify({
+                "error":
+                    "Budget cannot be less than $0."
+            }), 400
+
+        # ----------------------------------------------------
+        # Maximum budget
+        # ----------------------------------------------------
 
         if new_budget > MAX_BUDGET:
 
@@ -1679,8 +1773,10 @@ def add_budget():
                     "Total budget is too large."
             }), 400
 
-        # Increase the budget rather than
-        # replacing it.
+        # ----------------------------------------------------
+        # Update database
+        # ----------------------------------------------------
+
         connection.execute("""
             UPDATE users
             SET total_budget = ?
@@ -1691,6 +1787,10 @@ def add_budget():
         ))
 
         connection.commit()
+
+        # ----------------------------------------------------
+        # Retrieve updated budget
+        # ----------------------------------------------------
 
         updated_user = connection.execute("""
             SELECT
@@ -1705,7 +1805,8 @@ def add_budget():
 
         return jsonify({
             "message":
-                "Budget increased successfully.",
+                "Budget updated successfully.",
+
             "total_budget":
                 float(
                     updated_user["total_budget"]
@@ -1715,16 +1816,15 @@ def add_budget():
     except Exception as error:
 
         print(
-            "ADD BUDGET ERROR:",
+            "EDIT BUDGET ERROR:",
             error
         )
 
         return jsonify({
             "error":
-                "Unable to increase budget."
+                "Unable to update budget."
         }), 500
-
-
+    
 # ============================================================
 # INITIALIZE DATABASE
 # ============================================================

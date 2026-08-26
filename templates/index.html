@@ -264,6 +264,11 @@
                 <button onclick="showSpendingHistory()">
                     Spending History
                 </button>
+                <button 
+                    type="button"
+                    onclick="openBudgetEditor()">
+                    Edit Budget
+                </button>
             </div>
         </div>
     </section>
@@ -478,9 +483,53 @@
             </button>
         </div>
     </section>
+<!-- SCENE 8: EDIT BUDGET -->
+<section id="budgetScene" class="scene">
+    <div class="form-container">
+        <h2>Edit Budget</h2>
+        <label for="budgetAction">
+            Action
+        </label>
+        <select id="budgetAction">
+            <option value="add">
+                Add to Budget
+            </option>
+            <option value="reduce">
+                Reduce Budget
+            </option>
+        </select>
+        <label for="budgetAmount">
+            Amount
+        </label>
+        <input
+            id="budgetAmount"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="Enter amount"
+        >
+        <div
+            id="budgetEditError"
+            class="message"
+        ></div>
+        <button
+            class="success"
+            type="button"
+            onclick="saveBudgetChange()"
+        >
+            Save Changes
+        </button>
+        <button
+            class="secondary"
+            type="button"
+            onclick="closeBudgetEditor()"
+        >
+            Cancel
+        </button>
+    </div>
+</section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='script.js') }}"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

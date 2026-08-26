@@ -361,7 +361,7 @@ async function showExpenses() {
     expenses.forEach(expense => {
         const row = document.createElement("tr");
         row.innerHTML = `
-            <td>${expense.id}</td>
+            <td>${expense.expense_number}</td>
             <td>${expense.description}</td>
             <td>${expense.category}</td>
             <td>${expense.amount}</td>
@@ -370,12 +370,12 @@ async function showExpenses() {
             <td>${expense.payment}</td>
             <td class="actions">
                 <button
-                    onclick="editExpense(${expense.id})">
+                    onclick="editExpense(${expense.expense_number})">
                     Edit
                 </button>
                 <button
                     class="danger"
-                    onclick="deleteExpense(${expense.id})">
+                    onclick="deleteExpense(${expense.expense_number})">
                     Delete
                 </button>
             </td>
@@ -444,7 +444,7 @@ async function searchByDate() {
             expense => `
                 <div class="message">
                     <strong>
-                        Expense #${expense.id}
+                        Expense #${expense.expense_number}
                     </strong>
                     <br>
                     ${expense.description}
@@ -547,7 +547,7 @@ DISPLAY SEARCH RESULT
 function displaySearchResult(expense) {document.getElementById("searchResults").innerHTML = `
         <div class="message">
             <strong>
-                Expense #${expense.id}
+                Expense #${expense.expense_number}
             </strong>
             <br>
             Description:${expense.description}
@@ -588,7 +588,7 @@ async function editExpense(id) {
             alert(expense.error ||"Expense not found.");
             return;
         }
-        document.getElementById("editId").value = expense.id;
+        document.getElementById("editId").value = expense.expense_number;
         document.getElementById("editDescription").value = expense.description;
         document.getElementById("editCost").value =Number(expense.unit_cost).toFixed(2);
         document.getElementById("editCategory").value = expense.category;
@@ -729,7 +729,7 @@ function displayExpenses(expenses) {
     expenses.forEach(expense => {
         const row = document.createElement("tr");
         row.innerHTML = `
-            <td>${expense.id}</td>
+            <td>${expense.expense_number}</td>
             <td>${expense.description}</td>
             <td>${expense.category}</td>
             <td>${expense.amount}</td>
@@ -738,12 +738,12 @@ function displayExpenses(expenses) {
             <td>${expense.payment}</td>
             <td class="actions">
                 <button
-                    onclick="editExpense(${expense.id})">
+                    onclick="editExpense(${expense.expense_number})">
                     Edit
                 </button>
                 <button
                     class="danger"
-                    onclick="deleteExpense(${expense.id})">
+                    onclick="deleteExpense(${expense.expense_number})">
                     Delete
                 </button>
             </td>
@@ -882,5 +882,167 @@ async function showItems() {
             "Unable to connect to the Flask server.",
             "message"
         );
+    }
+}
+/*
+EDIT BUDGET
+*/
+
+function openBudgetEditor() {
+
+    const amount =
+        document.getElementById("budgetAmount");
+
+    const error =
+        document.getElementById("budgetEditError");
+
+    if (amount) {
+        amount.value = "";
+    }
+
+    if (error) {
+        error.textContent = "";
+    }
+
+    showScene("budgetScene");
+}
+
+function closeBudgetEditor() {
+
+    const amount =
+        document.getElementById("budgetAmount");
+
+    const error =
+        document.getElementById("budgetEditError");
+
+    if (amount) {
+        amount.value = "";
+    }
+
+    if (error) {
+        error.textContent = "";
+    }
+
+    showScene("dashboardScene");
+}
+
+
+async function saveBudgetChange() {
+
+    const actionElement =
+        document.getElementById("budgetAction");
+
+    const amountElement =
+        document.getElementById("budgetAmount");
+
+    const errorElement =
+        document.getElementById("budgetEditError");
+
+    if (
+        !actionElement ||
+        !amountElement ||
+        !errorElement
+    ) {
+        console.error(
+            "Budget editor elements are missing."
+        );
+        return;
+    }
+
+    const action =
+        actionElement.value;
+
+    const amountText =
+        amountElement.value.trim();
+
+    errorElement.textContent = "";
+
+    // --------------------------------------------------------
+    // Validate amount
+    // --------------------------------------------------------
+
+    if (
+        !/^\d+(\.\d{1,2})?$/.test(
+            amountText
+        )
+    ) {
+
+        errorElement.textContent =
+            "Please enter a valid amount with up to 2 decimal places.";
+
+        return;
+    }
+
+    const amount =
+        Number(amountText);
+
+    if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+    ) {
+
+        errorElement.textContent =
+            "Amount must be greater than $0.";
+
+        return;
+    }
+
+    // --------------------------------------------------------
+    // Send request to Flask
+    // --------------------------------------------------------
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/budget/edit",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        action: action,
+                        amount: amount
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        // ----------------------------------------------------
+        // Backend rejected request
+        // ----------------------------------------------------
+
+        if (!response.ok) {
+
+            errorElement.textContent =
+                data.error ||
+                "Unable to update budget.";
+
+            return;
+        }
+
+        // ----------------------------------------------------
+        // Successfully updated
+        // ----------------------------------------------------
+
+        await updateDashboard();
+
+        showScene("dashboardScene");
+
+    } catch (error) {
+
+        console.error(
+            "EDIT BUDGET ERROR:",
+            error
+        );
+
+        errorElement.textContent =
+            "Unable to connect to the server.";
     }
 }
