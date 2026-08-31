@@ -73,6 +73,7 @@ More importantly, from a software-development perspective, the project demonstra
 Expense-Tracker/
 │
 ├── app.py
+|── main.py
 ├── templates/
 │   └── index.html
 │
